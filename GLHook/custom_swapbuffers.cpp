@@ -1,5 +1,8 @@
 #include "custom_swapbuffers.h"
+#include"ftdraw.h"
 #include<map>
+#pragma comment(lib,"OpenGL32.lib")
+#pragma comment(lib,"glu32.lib")
 
 //https://stackoverflow.com/a/13438807
 BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
@@ -26,10 +29,14 @@ class SwapBuffersDraw
 {
 private:
 	NOTIFYICONDATA nid;
-	TCHAR title[256];
+	TCHAR text[128];
 	unsigned t1, t2, fcounter;
+	RECT windowrect;
+	HDC m_hdc;
+	FTDraw ftdraw;
+	const int fontsize = 48;
 public:
-	SwapBuffersDraw():t1(0),t2(0),fcounter(0)
+	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL)
 	{
 		nid.hWnd = NULL;
 	}
@@ -66,7 +73,14 @@ public:
 	}
 	void Init(HDC dc)
 	{
+		m_hdc = dc;
 		ShowTrayBalloon(dc);
+		GetClientRect(WindowFromDC(dc), &windowrect);
+		char fontname[256];
+		size_t rlen;
+		getenv_s(&rlen, fontname, "windir");
+		strcat_s(fontname, "/Fonts/SimSun.ttc");
+		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, "C:/Windows/Fonts/simsun.ttc", fontsize, NULL);
 	}
 
 	void Draw()
@@ -78,9 +92,9 @@ public:
 			t2 = GetTickCount();
 			if (t1 == t2)
 				t1--;
-			wsprintf(title, TEXT("FPS: %d"), 60000 / (t2 - t1));
-			SetWindowText(nid.hWnd, title);
+			wsprintf(text, TEXT("FPS: %d"), 60000 / (t2 - t1));
 		}
+		ftdraw.RenderText(text, 0, (float)(windowrect.bottom-windowrect.top-fontsize), 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
 	}
 };
 
