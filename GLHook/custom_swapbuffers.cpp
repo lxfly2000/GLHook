@@ -1,4 +1,5 @@
 #include "custom_swapbuffers.h"
+#include<map>
 
 //https://stackoverflow.com/a/13438807
 BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
@@ -24,11 +25,11 @@ BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
 class SwapBuffersDraw
 {
 private:
-	HWND hWnd;
 	NOTIFYICONDATA nid;
+	TCHAR title[256];
+	unsigned t1, t2, fcounter;
 public:
-	HDC hDC;
-	SwapBuffersDraw():hDC(NULL),hWnd(NULL)
+	SwapBuffersDraw():t1(0),t2(0),fcounter(0)
 	{
 		nid.hWnd = NULL;
 	}
@@ -37,12 +38,11 @@ public:
 		if (nid.hWnd)
 			Shell_NotifyIcon(NIM_DELETE, &nid);
 	}
-	void Init(HDC dc)
+	void ShowTrayBalloon(HDC hDC)
 	{
 		if (nid.hWnd)
 			Shell_NotifyIcon(NIM_DELETE, &nid);
-		hDC = dc;
-		hWnd = WindowFromDC(hDC);
+		nid.hWnd = WindowFromDC(hDC);
 		if (CheckWindowsVersion(6, 0, 6))
 			nid.cbSize = sizeof(NOTIFYICONDATA);
 		else if (CheckWindowsVersion(6, 0, 0))
@@ -51,41 +51,47 @@ public:
 			nid.cbSize = NOTIFYICONDATA_V2_SIZE;
 		else
 			nid.cbSize = NOTIFYICONDATA_V1_SIZE;
-		nid.hWnd = hWnd;
 		nid.uID = 2000;
-		nid.hIcon = (HICON)GetClassLongPtr(hWnd, GCLP_HICON);
+		nid.hIcon = (HICON)GetClassLongPtr(nid.hWnd, GCLP_HICON);
 		nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
 		nid.uVersion = NOTIFYICON_VERSION;
 		nid.uTimeout = 5000;
 		TCHAR text[256];
-		GetWindowText(hWnd, text, ARRAYSIZE(text));
+		GetWindowText(nid.hWnd, text, ARRAYSIZE(text));
 		wsprintf(nid.szTip, TEXT("GLHook [%s]"), text);
 		lstrcpy(nid.szInfoTitle, TEXT("GLHook º”‘ÿ≥…π¶°£"));
-		wsprintf(nid.szInfo, TEXT("HDC: %p\nHWND: %p"), hDC, hWnd);
+		wsprintf(nid.szInfo, TEXT("HDC: %p\nHWND: %p"), hDC, nid.hWnd);
 		nid.dwInfoFlags = NIIF_INFO;
 		Shell_NotifyIcon(NIM_ADD, &nid);
+	}
+	void Init(HDC dc)
+	{
+		ShowTrayBalloon(dc);
 	}
 
 	void Draw()
 	{
-		static TCHAR title[256];
-		static unsigned t1 = 0, t2 = 0, fcounter = 0;
 		if (fcounter-- == 0)
 		{
 			fcounter = 60;
 			t1 = t2;
 			t2 = GetTickCount();
+			if (t1 == t2)
+				t1--;
 			wsprintf(title, TEXT("FPS: %d"), 60000 / (t2 - t1));
-			SetWindowText(hWnd, title);
+			SetWindowText(nid.hWnd, title);
 		}
 	}
 };
 
-static SwapBuffersDraw c;
+static std::map<HDC, SwapBuffersDraw>cp;
 
 void CustomSwapBuffers(HDC pDC)
 {
-	if (c.hDC != pDC)
-		c.Init(pDC);
-	c.Draw();
+	if (cp.find(pDC) == cp.end())
+	{
+		cp.insert(std::make_pair(pDC, SwapBuffersDraw()));
+		cp[pDC].Init(pDC);
+	}
+	cp[pDC].Draw();
 }
