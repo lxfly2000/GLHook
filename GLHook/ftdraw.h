@@ -20,6 +20,7 @@ private:
 	GLuint ftVAO, ftVBO;
 	glm::mat4 projection;
 	Shader shader;
+	int m_width, m_height;
 
 public:
 	void Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars);

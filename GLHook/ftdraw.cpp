@@ -34,6 +34,8 @@ void main()\n\
 
 void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars)
 {
+	m_width = width;
+	m_height = height;
 	int success=gladLoadGL();
 	assert(success);
 	shader.Init(vshaderCode, fshaderCode);
@@ -121,6 +123,13 @@ void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fo
 
 void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color)
 {
+	// Define the viewport dimensions
+	glViewport(0, 0, m_width, m_height);
+
+	// Set OpenGL options
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	// Activate corresponding render state	
 	shader.use();
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
