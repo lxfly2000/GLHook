@@ -5,7 +5,6 @@
 #include<algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#pragma comment(lib,"../freetype-2.9.1/win64/freetype.lib")
 
 const char vshaderCode[] = "#version 330 core\n\
 layout(location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>\n\
