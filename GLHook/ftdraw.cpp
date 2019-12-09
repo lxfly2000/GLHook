@@ -23,12 +23,12 @@ in vec2 TexCoords;\n\
 out vec4 color;\n\
 \n\
 uniform sampler2D text;\n\
-uniform vec3 textColor;\n\
+uniform vec4 textColor;\n\
 \n\
 void main()\n\
 {\n\
 	vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, TexCoords).r);\n\
-	color = vec4(textColor, 1.0) * sampled;\n\
+	color = textColor * sampled;\n\
 }";
 
 void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars)
@@ -120,7 +120,7 @@ void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fo
 
 }
 
-void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color)
+void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec4 color)
 {
 	// Define the viewport dimensions
 	glViewport(0, 0, m_width, m_height);
@@ -132,7 +132,7 @@ void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, 
 	// Activate corresponding render state	
 	shader.use();
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-	glUniform3f(glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z);
+	glUniform4f(glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z,color.w);
 	glActiveTexture(GL_TEXTURE0);
 	glBindVertexArray(ftVAO);
 

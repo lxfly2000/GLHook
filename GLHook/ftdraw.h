@@ -3,6 +3,7 @@
 #include<glad/glad.h>
 #include<map>
 #include<glm/glm.hpp>
+#include<string>
 #include"Shader.h"
 
 /// Holds all state information relevant to a character as loaded using FreeType
@@ -24,5 +25,5 @@ private:
 
 public:
 	void Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars);
-	void RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color);
+	void RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec4 color);
 };

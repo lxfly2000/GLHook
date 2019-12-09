@@ -1,6 +1,7 @@
 #include "custom_swapbuffers.h"
 #include"ftdraw.h"
 #include<map>
+#include<ctime>
 #pragma comment(lib,"OpenGL32.lib")
 #pragma comment(lib,"glu32.lib")
 
@@ -28,37 +29,96 @@ BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
 class SwapBuffersDraw
 {
 private:
-	TCHAR text[128];
 	unsigned t1, t2, fcounter;
 	RECT windowrect;
 	HDC m_hdc;
 	FTDraw ftdraw;
-	const int fontsize = 48;
+	std::wstring display_text;
+	int current_fps;
+	TCHAR time_text[32], fps_text[32];
+
+	char font_name[256];
+	UINT font_size;
+	TCHAR text_x[16], text_y[16], display_text_fmt[256], fps_fmt[32], time_fmt[32];
+	TCHAR font_red[16], font_green[16], font_blue[16], font_alpha[16];
+	TCHAR font_shadow_red[16], font_shadow_green[16], font_shadow_blue[16], font_shadow_alpha[16], font_shadow_distance[16];
+	int period_frames;
+
+	glm::vec4 text_color, text_shadow_color;
+	float calc_text_x, calc_text_y, calc_shadow_x, calc_shadow_y;
 public:
 	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL)
 	{
 	}
 	void Init(HDC dc)
 	{
+		TCHAR szConfPath[MAX_PATH];
+		char szConfPathA[MAX_PATH];
+		GetDLLPath(szConfPath, ARRAYSIZE(szConfPath));
+		GetDLLPathA(szConfPathA, ARRAYSIZE(szConfPathA));
+		lstrcpy(wcsrchr(szConfPath, '.'), TEXT(".ini"));
+		strcpy_s(strrchr(szConfPathA, '.'), 5, ".ini");
+#define GetInitConfStr(key,def) GetPrivateProfileString(TEXT("Init"),TEXT(_STRINGIZE(key)),def,key,ARRAYSIZE(key),szConfPath)
+#define GetInitConfStrA(key,def) GetPrivateProfileStringA("Init",_STRINGIZE(key),def,key,ARRAYSIZE(key),szConfPathA)
+#define GetInitConfInt(key,def) key=GetPrivateProfileInt(TEXT("Init"),TEXT(_STRINGIZE(key)),def,szConfPath)
+#define F(_i_str) (float)_wtof(_i_str)
+		size_t rlen;
+		getenv_s(&rlen, font_name, "windir");
+		strcat_s(font_name, "/Fonts/SimSun.ttc");
+		GetInitConfStrA(font_name, font_name);
+		GetInitConfInt(font_size, 48);
+		GetInitConfStr(font_red, TEXT("1"));
+		GetInitConfStr(font_green, TEXT("1"));
+		GetInitConfStr(font_blue, TEXT("0"));
+		GetInitConfStr(font_alpha, TEXT("1"));
+		GetInitConfStr(font_shadow_red, TEXT("0.5"));
+		GetInitConfStr(font_shadow_green, TEXT("0.5"));
+		GetInitConfStr(font_shadow_blue, TEXT("0"));
+		GetInitConfStr(font_shadow_alpha, TEXT("1"));
+		GetInitConfStr(font_shadow_distance, TEXT("2"));
+		GetInitConfStr(text_x, TEXT("0"));
+		GetInitConfStr(text_y, TEXT("0"));
+		GetInitConfInt(period_frames, 60);
+		GetInitConfStr(time_fmt, TEXT("%H:%M:%S"));
+		GetInitConfStr(fps_fmt, TEXT("FPS:%3d"));
+		GetInitConfStr(display_text_fmt, TEXT("{fps}"));
+		text_color = glm::vec4(F(font_red), F(font_green), F(font_blue), F(font_alpha));
+		text_shadow_color = glm::vec4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha));
+
 		m_hdc = dc;
 		GetClientRect(WindowFromDC(dc), &windowrect);
-		char fontname[256];
-		size_t rlen;
-		getenv_s(&rlen, fontname, "windir");
-		strcat_s(fontname, "/Fonts/SimSun.ttc");
-		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, "C:/Windows/Fonts/simsun.ttc", fontsize, NULL);
+		calc_text_x = F(text_x);
+		calc_text_y = (float)(windowrect.bottom - windowrect.top - font_size - F(text_y));
+		calc_shadow_x = calc_text_x + F(font_shadow_distance);
+		calc_shadow_y = calc_text_y - F(font_shadow_distance);
+		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_size, NULL);
 	}
 
 	void Draw()
 	{
 		if (fcounter-- == 0)
 		{
-			fcounter = 60;
+			fcounter = period_frames;
 			t1 = t2;
 			t2 = GetTickCount();
 			if (t1 == t2)
 				t1--;
-			wsprintf(text, TEXT("FPS: %d"), 60000 / (t2 - t1));
+			current_fps = period_frames * 1000 / (t2 - t1);
+			wsprintf(fps_text, fps_fmt, current_fps);//注意wsprintf不支持浮点数格式化
+			time_t t1 = time(NULL);
+			tm tm1;
+			localtime_s(&tm1, &t1);
+			wcsftime(time_text, ARRAYSIZE(time_text), time_fmt, &tm1);
+			display_text = display_text_fmt;
+			size_t pos = display_text.find(TEXT("\\n"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 2, TEXT("\n"));
+			pos = display_text.find(TEXT("{fps}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 5, fps_text);
+			pos = display_text.find(TEXT("{time}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 6, time_text);
 		}
 		//https://github.com/ocornut/imgui/blob/master/examples/imgui_impl_opengl3.cpp#L142
 #pragma region Backup GL state
@@ -93,8 +153,8 @@ public:
 #endif
 #pragma endregion
 		//Notice that the origin point is at bottom-left of the screen
-		ftdraw.RenderText(text, 2.0f, windowrect.bottom - windowrect.top - fontsize - 2.0f, 1.0f, glm::vec3(0.5f, 0.5f, 0.5f));
-		ftdraw.RenderText(text, 0, (float)(windowrect.bottom-windowrect.top-fontsize), 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+		ftdraw.RenderText(display_text.c_str(), calc_shadow_x, calc_shadow_y, 1.0f, text_shadow_color);
+		ftdraw.RenderText(display_text.c_str(), calc_text_x, calc_text_y, 1.0f, text_color);
 #pragma region Restore modified GL state
 		glUseProgram(last_program);
 		glBindTexture(GL_TEXTURE_2D, last_texture);

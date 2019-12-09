@@ -6,6 +6,17 @@
 
 typedef BOOL(WINAPI*PFwglSwapBuffers)(HDC);
 static PFwglSwapBuffers pfSwapBuffers = nullptr, pfOriginalSwapBuffers = nullptr;
+static HMODULE hDllModule;
+
+DWORD GetDLLPath(LPTSTR path, DWORD max_length)
+{
+	return GetModuleFileName(hDllModule, path, max_length);
+}
+
+DWORD GetDLLPathA(LPSTR path, DWORD max_length)
+{
+	return GetModuleFileNameA(hDllModule, path, max_length);
+}
 
 BOOL WINAPI HookedwglSwapBuffers(HDC p)
 {
@@ -50,6 +61,7 @@ DWORD WINAPI TInitHook(LPVOID param)
 
 BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 {
+	hDllModule = hInstDll;
 	switch (fdwReason)
 	{
 	case DLL_PROCESS_ATTACH:
