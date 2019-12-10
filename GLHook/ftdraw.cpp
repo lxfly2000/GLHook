@@ -33,12 +33,9 @@ void main()\n\
 
 void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars)
 {
-	m_width = width;
-	m_height = height;
 	int success=gladLoadGL();
 	assert(success);
 	shader.Init(vshaderCode, fshaderCode);
-	projection = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
 	// Configure VAO/VBO for texture quads
 	glGenVertexArrays(1, &ftVAO);
 	glGenBuffers(1, &ftVBO);
@@ -117,7 +114,14 @@ void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fo
 	FT_Done_Face(face);
 	FT_Done_FreeType(ft);
 
+	ResizeWindow(width, height);
+}
 
+void FTDraw::ResizeWindow(int width, int height)
+{
+	m_width = width;
+	m_height = height;
+	projection = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
 }
 
 void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec4 color)

@@ -5,6 +5,7 @@
 #pragma comment(lib,"OpenGL32.lib")
 #pragma comment(lib,"glu32.lib")
 
+#define F(_i_str) (float)_wtof(_i_str)
 //https://stackoverflow.com/a/13438807
 BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
 {
@@ -50,6 +51,15 @@ public:
 	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL)
 	{
 	}
+	void CalcRect()
+	{
+		GetClientRect(WindowFromDC(m_hdc), &windowrect);
+		calc_text_x = F(text_x);
+		calc_text_y = (float)(windowrect.bottom - windowrect.top - font_size - F(text_y));
+		calc_shadow_x = calc_text_x + F(font_shadow_distance);
+		calc_shadow_y = calc_text_y - F(font_shadow_distance);
+		ftdraw.ResizeWindow(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top);
+	}
 	void Init(HDC dc)
 	{
 		TCHAR szConfPath[MAX_PATH];
@@ -61,7 +71,6 @@ public:
 #define GetInitConfStr(key,def) GetPrivateProfileString(TEXT("Init"),TEXT(_STRINGIZE(key)),def,key,ARRAYSIZE(key),szConfPath)
 #define GetInitConfStrA(key,def) GetPrivateProfileStringA("Init",_STRINGIZE(key),def,key,ARRAYSIZE(key),szConfPathA)
 #define GetInitConfInt(key,def) key=GetPrivateProfileInt(TEXT("Init"),TEXT(_STRINGIZE(key)),def,szConfPath)
-#define F(_i_str) (float)_wtof(_i_str)
 		size_t rlen;
 		getenv_s(&rlen, font_name, "windir");
 		strcat_s(font_name, "/Fonts/SimSun.ttc");
@@ -177,9 +186,17 @@ public:
 		glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
 #pragma endregion
 	}
+	WNDPROC oldwndproc;
 };
 
 static std::map<HDC, SwapBuffersDraw>cp;
+
+LRESULT WINAPI HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	if (msg == WM_SIZE)
+		cp[GetDC(hwnd)].CalcRect();
+	return CallWindowProc(cp[GetDC(hwnd)].oldwndproc, hwnd, msg, wparam, lparam);
+}
 
 void CustomSwapBuffers(HDC pDC)
 {
@@ -187,6 +204,8 @@ void CustomSwapBuffers(HDC pDC)
 	{
 		cp.insert(std::make_pair(pDC, SwapBuffersDraw()));
 		cp[pDC].Init(pDC);
+		cp[pDC].oldwndproc = (WNDPROC)GetWindowLongPtr(WindowFromDC(pDC), GWLP_WNDPROC);
+		SetWindowLongPtr(WindowFromDC(pDC), GWLP_WNDPROC, (LONG_PTR)HookedWndProc);
 	}
 	cp[pDC].Draw();
 }
