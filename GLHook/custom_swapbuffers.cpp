@@ -122,7 +122,7 @@ public:
 		else if (lstrcmpi(text_valign, TEXT("bottom")) == 0)
 			anchor_y = 1.0f;
 		else
-			anchor_y = 1.0f - F(text_valign);
+			anchor_y = F(text_valign);
 		calc_shadow_x = calc_text_x + F(font_shadow_distance);
 		calc_shadow_y = calc_text_y + F(font_shadow_distance);
 		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_face_index, font_size, NULL);
