@@ -31,7 +31,31 @@ void main()\n\
 	color = textColor * sampled;\n\
 }";
 
-void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars)
+void FTDraw::CalcDrawRect(const std::wstring &text, GLfloat scale, GLfloat* width, GLfloat* height)
+{
+	*width = *height = 0;
+	float& max_draw_width = *width;
+	float& max_draw_height = *height;
+	int line_width = 0;
+	max_draw_height = m_face_line_spacing;
+	for (auto& c : text)
+	{
+		Character ch = Characters[c];
+		if (c == '\n')
+		{
+			line_width = 0;
+			max_draw_height += ch.Bearing.y * scale + m_face_line_spacing * scale;
+		}
+		else
+		{
+			line_width += (ch.Advance >> 6)* scale;
+			if (line_width > max_draw_width)
+				max_draw_width = line_width;
+		}
+	}
+}
+
+void FTDraw::Init(int width,int height,const char *fontfilename, long fontfaceindex, unsigned int fontsizeh, const wchar_t *usingChars)
 {
 	int success=gladLoadGL();
 	assert(success);
@@ -55,7 +79,7 @@ void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fo
 
 	// Load font as face
 	FT_Face face;
-	error = FT_New_Face(ft, fontfilename, 0, &face);
+	error = FT_New_Face(ft, fontfilename, fontfaceindex, &face);
 	assert(error == 0);
 	FT_Select_Charmap(face, FT_ENCODING_UNICODE);
 	// Set size to load glyphs as
@@ -109,6 +133,7 @@ void FTDraw::Init(int width,int height,const char *fontfilename, unsigned int fo
 		};
 		Characters.insert(std::make_pair(puc[i], character));
 	}
+	m_face_line_spacing = fontsizeh;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	// Destroy FreeType once we're finished
 	FT_Done_Face(face);
@@ -124,7 +149,7 @@ void FTDraw::ResizeWindow(int width, int height)
 	projection = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
 }
 
-void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec4 color)
+void FTDraw::RenderText(const std::wstring &text, GLfloat x, GLfloat y, GLfloat anchor_x_factor, GLfloat anchor_y_factor, GLfloat scale, const glm::vec4 &color)
 {
 	// Define the viewport dimensions
 	glViewport(0, 0, m_width, m_height);
@@ -139,12 +164,23 @@ void FTDraw::RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, 
 	glUniform4f(glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z,color.w);
 	glActiveTexture(GL_TEXTURE0);
 	glBindVertexArray(ftVAO);
-
+	float cw, ch;
+	CalcDrawRect(text, scale, &cw, &ch);
+	x -= anchor_x_factor * cw;
+	y -= anchor_y_factor * ch;
 	// Iterate through all characters
 	std::wstring::const_iterator c;
+	GLfloat original_x = x;
+	y = m_height - y - m_face_line_spacing * scale;
 	for (c = text.begin(); c != text.end(); c++)
 	{
 		Character ch = Characters[*c];
+		if (*c == '\n')
+		{
+			x = original_x;
+			y -= ch.Bearing.y * scale + m_face_line_spacing * scale;
+			continue;
+		}
 
 		GLfloat xpos = x + ch.Bearing.x * scale;
 		GLfloat ypos = y - (ch.Size.y - ch.Bearing.y) * scale;

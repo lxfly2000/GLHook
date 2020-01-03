@@ -36,28 +36,32 @@ private:
 	FTDraw ftdraw;
 	std::wstring display_text;
 	int current_fps;
-	TCHAR time_text[32], fps_text[32];
+	TCHAR time_text[32], fps_text[32],width_text[32],height_text[32];
 
 	char font_name[256];
 	UINT font_size;
-	TCHAR text_x[16], text_y[16], display_text_fmt[256], fps_fmt[32], time_fmt[32];
+	TCHAR text_x[16], text_y[16], text_align[16], text_valign[16], display_text_fmt[256], fps_fmt[32], time_fmt[32],width_fmt[32],height_fmt[32];
 	TCHAR font_red[16], font_green[16], font_blue[16], font_alpha[16];
 	TCHAR font_shadow_red[16], font_shadow_green[16], font_shadow_blue[16], font_shadow_alpha[16], font_shadow_distance[16];
-	int period_frames;
+	int period_frames,font_face_index;
 
 	glm::vec4 text_color, text_shadow_color;
 	float calc_text_x, calc_text_y, calc_shadow_x, calc_shadow_y;
+	float anchor_x, anchor_y;
 public:
-	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL)
+	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL),windowrect()
 	{
 	}
 	void CalcRect()
 	{
-		GetClientRect(WindowFromDC(m_hdc), &windowrect);
-		calc_text_x = F(text_x);
-		calc_text_y = (float)(windowrect.bottom - windowrect.top - font_size - F(text_y));
+		if (windowrect.left == 0 && windowrect.top == 0 && windowrect.right == 0 && windowrect.bottom == 0)
+			GetClientRect(WindowFromDC(m_hdc), &windowrect);
+		else
+			glGetIntegerv(GL_VIEWPORT, (int*)&windowrect);
+		calc_text_x = F(text_x)*(windowrect.right-windowrect.left);
+		calc_text_y = F(text_y)*(windowrect.bottom-windowrect.top);
 		calc_shadow_x = calc_text_x + F(font_shadow_distance);
-		calc_shadow_y = calc_text_y - F(font_shadow_distance);
+		calc_shadow_y = calc_text_y + F(font_shadow_distance);
 		ftdraw.ResizeWindow(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top);
 	}
 	void Init(HDC dc)
@@ -85,22 +89,43 @@ public:
 		GetInitConfStr(font_shadow_blue, TEXT("0"));
 		GetInitConfStr(font_shadow_alpha, TEXT("1"));
 		GetInitConfStr(font_shadow_distance, TEXT("2"));
+		GetInitConfInt(font_face_index, 0);
 		GetInitConfStr(text_x, TEXT("0"));
 		GetInitConfStr(text_y, TEXT("0"));
+		GetInitConfStr(text_align, TEXT("left"));
+		GetInitConfStr(text_valign, TEXT("top"));
 		GetInitConfInt(period_frames, 60);
 		GetInitConfStr(time_fmt, TEXT("%H:%M:%S"));
 		GetInitConfStr(fps_fmt, TEXT("FPS:%3d"));
+		GetInitConfStr(width_fmt, TEXT("%d"));
+		GetInitConfStr(height_fmt, TEXT("%d"));
 		GetInitConfStr(display_text_fmt, TEXT("{fps}"));
 		text_color = glm::vec4(F(font_red), F(font_green), F(font_blue), F(font_alpha));
 		text_shadow_color = glm::vec4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha));
 
 		m_hdc = dc;
 		GetClientRect(WindowFromDC(dc), &windowrect);
-		calc_text_x = F(text_x);
-		calc_text_y = (float)(windowrect.bottom - windowrect.top - font_size - F(text_y));
+		calc_text_x = F(text_x)*(windowrect.right-windowrect.left);
+		calc_text_y = F(text_y)*(windowrect.bottom-windowrect.top);
+		if (lstrcmpi(text_align, TEXT("left")) == 0)
+			anchor_x = 0.0f;
+		else if (lstrcmpi(text_align, TEXT("center")) == 0)
+			anchor_x = 0.5f;
+		else if (lstrcmpi(text_align, TEXT("right")) == 0)
+			anchor_x = 1.0f;
+		else
+			anchor_x = F(text_align);
+		if (lstrcmpi(text_valign, TEXT("top")) == 0)
+			anchor_y = 0.0f;
+		else if (lstrcmpi(text_valign, TEXT("center")) == 0)
+			anchor_y = 0.5f;
+		else if (lstrcmpi(text_valign, TEXT("bottom")) == 0)
+			anchor_y = 1.0f;
+		else
+			anchor_y = 1.0f - F(text_valign);
 		calc_shadow_x = calc_text_x + F(font_shadow_distance);
-		calc_shadow_y = calc_text_y - F(font_shadow_distance);
-		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_size, NULL);
+		calc_shadow_y = calc_text_y + F(font_shadow_distance);
+		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_face_index, font_size, NULL);
 	}
 
 	void Draw()
@@ -118,6 +143,8 @@ public:
 			tm tm1;
 			localtime_s(&tm1, &t1);
 			wcsftime(time_text, ARRAYSIZE(time_text), time_fmt, &tm1);
+			wsprintf(width_text, width_fmt, windowrect.right - windowrect.left);
+			wsprintf(height_text, height_fmt, windowrect.bottom - windowrect.top);
 			display_text = display_text_fmt;
 			size_t pos = display_text.find(TEXT("\\n"));
 			if (pos != std::wstring::npos)
@@ -128,6 +155,12 @@ public:
 			pos = display_text.find(TEXT("{time}"));
 			if (pos != std::wstring::npos)
 				display_text.replace(pos, 6, time_text);
+			pos = display_text.find(TEXT("{width}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 7, width_text);
+			pos = display_text.find(TEXT("{height}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 8, height_text);
 		}
 		//https://github.com/ocornut/imgui/blob/master/examples/imgui_impl_opengl3.cpp#L142
 #pragma region Backup GL state
@@ -162,8 +195,8 @@ public:
 #endif
 #pragma endregion
 		//Notice that the origin point is at bottom-left of the screen
-		ftdraw.RenderText(display_text.c_str(), calc_shadow_x, calc_shadow_y, 1.0f, text_shadow_color);
-		ftdraw.RenderText(display_text.c_str(), calc_text_x, calc_text_y, 1.0f, text_color);
+		ftdraw.RenderText(display_text.c_str(), calc_shadow_x, calc_shadow_y,anchor_x,anchor_y, 1.0f, text_shadow_color);
+		ftdraw.RenderText(display_text.c_str(), calc_text_x, calc_text_y,anchor_x,anchor_y, 1.0f, text_color);
 #pragma region Restore modified GL state
 		glUseProgram(last_program);
 		glBindTexture(GL_TEXTURE_2D, last_texture);
@@ -193,9 +226,10 @@ static std::map<HDC, SwapBuffersDraw>cp;
 
 LRESULT WINAPI HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	LRESULT lr = CallWindowProc(cp[GetDC(hwnd)].oldwndproc, hwnd, msg, wparam, lparam);
 	if (msg == WM_SIZE)
 		cp[GetDC(hwnd)].CalcRect();
-	return CallWindowProc(cp[GetDC(hwnd)].oldwndproc, hwnd, msg, wparam, lparam);
+	return lr;
 }
 
 void CustomSwapBuffers(HDC pDC)

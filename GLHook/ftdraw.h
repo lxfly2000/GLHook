@@ -22,9 +22,11 @@ private:
 	glm::mat4 projection;
 	Shader shader;
 	int m_width, m_height;
+	int m_face_line_spacing;
 
 public:
-	void Init(int width,int height,const char *fontfilename, unsigned int fontsizeh, const wchar_t *usingChars);
+	void Init(int width,int height,const char *fontfilename, long fontfaceindex, unsigned int fontsizeh, const wchar_t *usingChars);
 	void ResizeWindow(int width, int height);
-	void RenderText(std::wstring text, GLfloat x, GLfloat y, GLfloat scale, glm::vec4 color);
+	void RenderText(const std::wstring &text, GLfloat x, GLfloat y, GLfloat anchor_x_factor, GLfloat anchor_y_factor, GLfloat scale, const glm::vec4 &color);
+	void CalcDrawRect(const std::wstring &text, GLfloat scale, GLfloat* width, GLfloat* height);
 };
