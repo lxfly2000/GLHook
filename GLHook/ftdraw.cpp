@@ -1,4 +1,5 @@
 #include "ftdraw.h"
+#include "custom_swapbuffers.h"
 
 #include<ft2build.h>
 #include FT_FREETYPE_H
@@ -152,7 +153,7 @@ void FTDraw::ResizeWindow(int width, int height)
 void FTDraw::RenderText(const std::wstring &text, GLfloat x, GLfloat y, GLfloat anchor_x_factor, GLfloat anchor_y_factor, GLfloat scale, const glm::vec4 &color)
 {
 	// Define the viewport dimensions
-	glViewport(0, 0, m_width, m_height);
+	OriginalViewport(0, 0, m_width, m_height);
 
 	// Set OpenGL options
 	glEnable(GL_CULL_FACE);

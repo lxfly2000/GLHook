@@ -6,33 +6,12 @@
 #pragma comment(lib,"glu32.lib")
 
 #define F(_i_str) (float)_wtof(_i_str)
-//https://stackoverflow.com/a/13438807
-BOOL CheckWindowsVersion(DWORD dwMajor, DWORD dwMinor, DWORD dwBuild)
-{
-	// Initialize the OSVERSIONINFOEX structure.
-	OSVERSIONINFOEX osvi;
-	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-	osvi.dwMajorVersion = dwMajor;
-	osvi.dwMinorVersion = dwMinor;
-	osvi.dwBuildNumber = dwBuild;
-
-	// Initialize the condition mask.
-	DWORDLONG dwlConditionMask = 0;
-	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, VER_GREATER_EQUAL);
-	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, VER_GREATER_EQUAL);
-	VER_SET_CONDITION(dwlConditionMask, VER_BUILDNUMBER, VER_GREATER_EQUAL);
-
-	// Perform the test.
-	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_BUILDNUMBER, dwlConditionMask);
-}
 
 class SwapBuffersDraw
 {
 private:
 	unsigned t1, t2, fcounter;
 	RECT windowrect;
-	HDC m_hdc;
 	FTDraw ftdraw;
 	std::wstring display_text;
 	int current_fps;
@@ -49,20 +28,20 @@ private:
 	float calc_text_x, calc_text_y, calc_shadow_x, calc_shadow_y;
 	float anchor_x, anchor_y;
 public:
-	SwapBuffersDraw():t1(0),t2(0),fcounter(0),m_hdc(NULL),windowrect()
+	SwapBuffersDraw():t1(0),t2(0),fcounter(0),windowrect()
 	{
 	}
-	void CalcRect()
+	void CalcRect(int x,int y,int width,int height)
 	{
-		if (windowrect.left == 0 && windowrect.top == 0 && windowrect.right == 0 && windowrect.bottom == 0)
-			GetClientRect(WindowFromDC(m_hdc), &windowrect);
-		else
-			glGetIntegerv(GL_VIEWPORT, (int*)&windowrect);
-		calc_text_x = F(text_x)*(windowrect.right-windowrect.left);
-		calc_text_y = F(text_y)*(windowrect.bottom-windowrect.top);
+		windowrect.left = x;
+		windowrect.top = y;
+		windowrect.right = x+width;
+		windowrect.bottom = y+height;
+		calc_text_x = F(text_x)*width;
+		calc_text_y = F(text_y)*height;
 		calc_shadow_x = calc_text_x + F(font_shadow_distance);
 		calc_shadow_y = calc_text_y + F(font_shadow_distance);
-		ftdraw.ResizeWindow(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top);
+		ftdraw.ResizeWindow(width, height);
 	}
 	void Init(HDC dc)
 	{
@@ -103,7 +82,6 @@ public:
 		text_color = glm::vec4(F(font_red), F(font_green), F(font_blue), F(font_alpha));
 		text_shadow_color = glm::vec4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha));
 
-		m_hdc = dc;
 		GetClientRect(WindowFromDC(dc), &windowrect);
 		calc_text_x = F(text_x)*(windowrect.right-windowrect.left);
 		calc_text_y = F(text_y)*(windowrect.bottom-windowrect.top);
@@ -215,7 +193,7 @@ public:
 #ifdef GL_POLYGON_MODE
 		glPolygonMode(GL_FRONT_AND_BACK, (GLenum)last_polygon_mode[0]);
 #endif
-		glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);
+		OriginalViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);
 		glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
 #pragma endregion
 	}
@@ -224,22 +202,19 @@ public:
 
 static std::map<HDC, SwapBuffersDraw>cp;
 
-LRESULT WINAPI HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
-{
-	LRESULT lr = CallWindowProc(cp[GetDC(hwnd)].oldwndproc, hwnd, msg, wparam, lparam);
-	if (msg == WM_SIZE)
-		cp[GetDC(hwnd)].CalcRect();
-	return lr;
-}
-
 void CustomSwapBuffers(HDC pDC)
 {
 	if (cp.find(pDC) == cp.end())
 	{
 		cp.insert(std::make_pair(pDC, SwapBuffersDraw()));
 		cp[pDC].Init(pDC);
-		cp[pDC].oldwndproc = (WNDPROC)GetWindowLongPtr(WindowFromDC(pDC), GWLP_WNDPROC);
-		SetWindowLongPtr(WindowFromDC(pDC), GWLP_WNDPROC, (LONG_PTR)HookedWndProc);
 	}
 	cp[pDC].Draw();
+}
+
+void CustomViewport(int x, int y, int width, int height)
+{
+	HDC dc = wglGetCurrentDC();
+	if (cp.find(dc) != cp.end())
+		cp[dc].CalcRect(x, y, width, height);
 }
