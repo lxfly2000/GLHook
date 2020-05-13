@@ -103,7 +103,8 @@ public:
 			anchor_y = F(text_valign);
 		calc_shadow_x = calc_text_x + F(font_shadow_distance);
 		calc_shadow_y = calc_text_y + F(font_shadow_distance);
-		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_face_index, font_size, NULL);
+		ftdraw.Init(windowrect.right - windowrect.left, windowrect.bottom - windowrect.top, font_name, font_face_index
+			, font_size*USER_DEFAULT_SCREEN_DPI/72, NULL);
 	}
 
 	void Draw()
