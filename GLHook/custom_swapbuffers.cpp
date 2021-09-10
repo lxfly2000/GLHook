@@ -3,6 +3,12 @@
 #include<map>
 #include<ctime>
 
+#ifdef _M_X64
+#pragma comment(lib,"../freetype-windows-binaries/release static/vs2015-2019/win64/freetype.lib")
+#else
+#pragma comment(lib,"../freetype-windows-binaries/release static/vs2015-2019/win32/freetype.lib")
+#endif
+
 #pragma comment(lib,"OpenGL32.lib")
 #pragma comment(lib,"glu32.lib")
 
