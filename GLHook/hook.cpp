@@ -21,10 +21,73 @@ DWORD GetDLLPathA(LPSTR path, DWORD max_length)
 	return GetModuleFileNameA(hDllModule, path, max_length);
 }
 
+static int SpeedGear_frameCounter = 0;
+#include <d3dkmthk.h>
+D3DKMT_WAITFORVERTICALBLANKEVENT getVBlankHandle() {
+	//https://docs.microsoft.com/en-us/windows/desktop/gdi/getting-information-on-a-display-monitor
+	DISPLAY_DEVICE dd;
+	dd.cb = sizeof(DISPLAY_DEVICE);
+
+	DWORD deviceNum = 0;
+	while (EnumDisplayDevices(NULL, deviceNum, &dd, 0)) {
+		if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
+			break;
+		/*
+		DISPLAY_DEVICE newdd = {0};
+		newdd.cb = sizeof(DISPLAY_DEVICE);
+		DWORD monitorNum = 0;
+		while (EnumDisplayDevices(dd.DeviceName, monitorNum, &newdd, 0)) {
+			DumpDevice(newdd, 4);
+			monitorNum++;
+		}
+		*/
+		deviceNum++;
+	}
+
+	HDC hdc = CreateDC(NULL, dd.DeviceName, NULL, NULL);
+
+	D3DKMT_OPENADAPTERFROMHDC OpenAdapterData;
+
+	OpenAdapterData.hDc = hdc;
+	if (0 == D3DKMTOpenAdapterFromHdc(&OpenAdapterData)) {
+		DeleteDC(hdc);
+	}
+	else {
+		DeleteDC(hdc);
+	}
+	D3DKMT_WAITFORVERTICALBLANKEVENT we;
+	we.hAdapter = OpenAdapterData.hAdapter;
+	we.hDevice = 0; //optional. maybe OpenDeviceHandle will give it to us, https://docs.microsoft.com/en-us/windows/desktop/api/dxva2api/nf-dxva2api-idirect3ddevicemanager9-opendevicehandle
+	we.VidPnSourceId = OpenAdapterData.VidPnSourceId;
+
+	return we;
+}
+
+D3DKMT_WAITFORVERTICALBLANKEVENT wv;
+bool wvget = true;
+
 BOOL WINAPI HookedwglSwapBuffers(HDC p)
 {
 	CustomSwapBuffers(p);
-	return pfOriginalSwapBuffers(p);
+	BOOL r = FALSE;
+	if (SpeedGear::GetCurrentSpeed() >= 1.0f)
+	{
+		if (SpeedGear_frameCounter == 0)
+			r = pfOriginalSwapBuffers(p);
+		SpeedGear_frameCounter = (SpeedGear_frameCounter + 1) % static_cast<int>(SpeedGear::GetCurrentSpeed());
+	}
+	else
+	{
+		r = pfOriginalSwapBuffers(p);
+		if (wvget)
+		{
+			wv = getVBlankHandle();
+			wvget = false;
+		}
+		for (int i = 0; i < (int)(1.0f / SpeedGear::GetCurrentSpeed()); i++)
+			D3DKMTWaitForVerticalBlankEvent(&wv);
+	}
+	return r;
 }
 
 void WINAPI HookedglViewport(GLint x, GLint y, GLsizei width, GLsizei height)
@@ -82,6 +145,16 @@ extern "C" __declspec(dllexport) BOOL StopHook()
 	return TRUE;
 }
 
+extern "C" __declspec(dllexport) BOOL SpeedGear_StartHook()
+{
+	return SpeedGear::InitCustomTime();
+}
+
+extern "C" __declspec(dllexport) BOOL SpeedGear_StopHook()
+{
+	return SpeedGear::UninitCustomTime();
+}
+
 DWORD WINAPI TInitHook(LPVOID param)
 {
 	return StartHook();
@@ -94,10 +167,12 @@ BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 	{
 	case DLL_PROCESS_ATTACH:
 		DisableThreadLibraryCalls(hInstDll);
+		SpeedGear_StartHook();//消息钩子不能单独开线程使用
 		CreateThread(NULL, 0, TInitHook, NULL, 0, NULL);
 		break;
 	case DLL_PROCESS_DETACH:
 		StopHook();
+		SpeedGear_StopHook();
 		break;
 	case DLL_THREAD_ATTACH:break;
 	case DLL_THREAD_DETACH:break;
